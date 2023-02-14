@@ -6,12 +6,142 @@ const Sequelize = require('sequelize');
 const fs = require('fs');
 const morgan = require('morgan');
 
+const port = 3004;
 const path = require('path');
 
-app.use(bodyParser.json());
-app.use(morgan('combined'));
+app.use(express.json({
+    limit: '500mb'
+}));
+app.use(bodyParser.json({
+    limit: '500mb'
+}));
+app.use(bodyParser.urlencoded({
+    limit: '500mb',
+    extended: true
+}));
+
+app.use(express.json({
+    limit: '500mb'
+}));
+
+// Sequelize setup, need to remove it
+const sequelize = new Sequelize(
+    "postgres://postgres:root@localhost:5433/uploads", {
+        dialect: "postgres",
+        dialectOptions: {
+            ssl: false,
+        },
+        define: {
+            timestamps: false,
+        },
+    }
+);
+
+const Chunk = sequelize.define("chunk", {
+    chunkid: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        primaryKey: true,
+    },
+    fileid: {
+        type: Sequelize.STRING,
+        allowNull: false,
+    },
+    chunknumber: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+    },
+    totalchunks: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+    },
+});
+
+app.post('/uploads', (req, res) => {
+    const filePath = './uploads/file.mp4';
+    const fileStream = fs.createWriteStream(filePath);
+    req.on('data', chunk => {
+        fileStream.write(chunk);
+    });
+    req.on('end', () => {
+        fileStream.end();
+        res.status(200).send('File uploaded successfully!');
+    });
+});
+
+app.post('/chunks', async (req, res) => {
+
+    console.log('Inside req.body:' + req.body);
+    const {
+        filename,
+        chunkIndex,
+        totalChunks,
+        data
+    } = req.body;
+
+    console.log(`Inside chunks filename: ${filename} , chunkIndex: ${chunkIndex}, totalChunks: ${totalChunks}`);
+
+    // Store the chunk in the Postgres database
+    await Chunk.create({
+        chunkid: chunkIndex,
+        fileid: filename,
+        chunknumber: chunkIndex,
+        totalchunks: totalChunks,
+    });
 
 
+    const filePath = `./uploads/${filename}`;
+    const fileStream = fs.createWriteStream(filePath, {
+        flags: 'a'
+    });
+
+    // write the chunk data to the file stream
+    fileStream.write(data, 'base64', () => {
+        // check if this is the last chunk
+        if (chunkIndex === totalChunks - 1) {
+            // close the file stream and send a response to the client
+            fileStream.end();
+            res.status(200).send('File uploaded successfully!');
+        }
+    });
+});
+
+
+app.post('/upload', (req, res) => {
+
+    console.log('Received file upload request:', req.body);
+    const file = req.body.file;
+    const filePath = path.join(__dirname, `/uploads/${file.name}`);
+
+    fs.writeFile(filePath, file.data, {
+        encoding: 'base64'
+    }, (err) => {
+        if (err) {
+            return res.status(500).send(err);
+        }
+        res.send('File uploaded successfully!');
+    });
+});
+
+app.listen(port, () => {
+    console.log(`Server listening at http://localhost:${port}`);
+});
+
+app.get('/download/:fileName', (req, res) => {
+    const fileName = req.params.fileName;
+    const filePath = path.join(__dirname, `/uploads/${fileName}`);
+
+    fs.readFile(filePath, (err, data) => {
+        if (err) {
+            return res.status(404).send('File not found');
+        }
+        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.send(data);
+    });
+});
+
+/*
 // Sequelize setup
 const sequelize = new Sequelize('postgres://postgres:root@localhost:5433/uploads', {
     dialect: 'postgres',
@@ -45,7 +175,14 @@ const Chunk = sequelize.define('chunk', {
 
 // Express setup
 app.use(bodyParser.json());
-app.use(cors());
+//app.use(cors());
+
+app.use(express.json({
+    limit: '500mb'
+}));
+app.use(express.urlencoded({
+    limit: '500mb'
+}));
 
 // Validate chunk data
 function validateChunkData(data) {
@@ -73,11 +210,17 @@ function validateReassemblyData(data) {
 // Endpoint for uploading a chunk
 app.post('/chunks', async (req, res) => {
 
-    console.log(req);
+    const {
+        chunkId,
+        fileId,
+        chunkNumber,
+        totalChunks
+    } = req.body;
+    console.log(`Inside chunks chunkId: ${chunkId} , fileId: ${fileId}, chunkNumber: ${chunkNumber}, totalChunks: ${totalChunks}`);
 
-    const chunkId = `${req.body.fileId}_chunk_${req.body.chunkNumber}`;
+    chunkId = `${req.body.fileId}_chunk_${req.body.chunkNumber}`;
 
-    validateChunkData(req.body);
+    //validateChunkData(req.body);
 
     // Store the chunk in the Postgres database
     await Chunk.create({
@@ -154,4 +297,4 @@ app.post('/reassemble', async (req, res) => {
 
 app.listen(3004, () => {
     console.log('Listening on port 3004');
-});
+});*/
