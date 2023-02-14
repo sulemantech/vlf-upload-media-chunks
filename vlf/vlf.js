@@ -11,6 +11,7 @@ const {
 const sequelize = new Sequelize(
     "postgres://postgres:root@localhost:5433/uploads", {
         dialect: "postgres",
+        schema: 'common',
         dialectOptions: {
             ssl: false,
         },
@@ -23,15 +24,28 @@ const sequelize = new Sequelize(
 const port = 3005;
 
 const app = express();
-app.use(bodyParser.json());
+app.use(express.json({
+    limit: '500mb'
+}));
+app.use(bodyParser.json({
+    limit: '500mb'
+}));
+app.use(bodyParser.urlencoded({
+    limit: '500mb',
+    extended: true
+}));
+
+app.use(express.json({
+    limit: '500mb'
+}));
 
 // Set up Sequelize models for File and Chunk
-const File = sequelize.define('File', {
-    id: {
+const File = sequelize.define('file', {
+    /*id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true
-    },
+    },*/
     name: {
         type: DataTypes.STRING,
         allowNull: false
@@ -40,23 +54,26 @@ const File = sequelize.define('File', {
         type: DataTypes.BIGINT,
         allowNull: false
     },
-    totalChunks: {
+    totalchunks: {
         type: DataTypes.INTEGER,
         allowNull: false
     },
-    uploadedChunks: {
+    uploadedchunks: {
         type: DataTypes.INTEGER,
         allowNull: false,
         defaultValue: 0
     }
+}, {
+    // options
+    schema: 'common' // specify the schema name here as well
 });
 
-const Chunk = sequelize.define('Chunk', {
+const Chunk = sequelize.define('chunk', {
     id: {
         type: DataTypes.STRING,
         primaryKey: true
     },
-    fileId: {
+    fileid: {
         type: DataTypes.INTEGER,
         allowNull: false,
         references: {
@@ -64,10 +81,13 @@ const Chunk = sequelize.define('Chunk', {
             key: 'id'
         }
     },
-    chunkNumber: {
+    chunknumber: {
         type: DataTypes.INTEGER,
         allowNull: false
     }
+}, {
+    // options
+    schema: 'common' // specify the schema name here as well
 });
 
 // Create a new file upload
@@ -78,11 +98,15 @@ app.post('/files', async (req, res) => {
             size,
             totalChunks
         } = req.body;
+
+        console.log(`name: ${name} sized: ${size} totalChunks: ${totalChunks}`);
+        var number = 100;
         const file = await File.create({
             name,
             size,
-            totalChunks
+            totalchunks: 10
         });
+        console.log("Returning 201 here");
         res.status(201).json({
             fileId: file.id
         });
@@ -100,6 +124,9 @@ app.post('/chunks/:id', async (req, res) => {
             fileId,
             chunkNumber
         } = req.body;
+
+        console.log(`Inside chunks fileId ${fileId}, chunkNumber ${chunkNumber} `);
+
         const chunkPath = path.join(__dirname, 'chunks', chunkId);
 
         // Save the chunk to disk
@@ -115,8 +142,8 @@ app.post('/chunks/:id', async (req, res) => {
         // Create a new record in the database
         await Chunk.create({
             id: chunkId,
-            fileId,
-            chunkNumber
+            fileid: fileId,
+            chunknumber: chunkNumber
         });
 
         const file = await File.findByPk(fileId);
@@ -128,7 +155,7 @@ app.post('/chunks/:id', async (req, res) => {
                     fileId
                 },
                 order: [
-                    ['chunkNumber', 'ASC']
+                    ['chunknumber', 'ASC']
                 ]
             });
             const filePath = path.join(__dirname, 'uploads', fileId.toString());

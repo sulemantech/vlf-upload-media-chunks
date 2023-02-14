@@ -7,7 +7,7 @@ const BASE_URL = 'http://localhost:3005';
 
 // Upload a chunk of a file
 async function uploadChunk(fileId, chunkNumber, totalChunks, chunkData) {
-    const response = await axios.post(`${BASE_URL}/files/chunks`, {
+    const response = await axios.post(`${BASE_URL}/chunks`, {
         fileId: fileId,
         chunkNumber: chunkNumber,
         totalChunks: totalChunks,
@@ -39,7 +39,7 @@ async function uploadLargeFile(filePath) {
         const start = i * CHUNK_SIZE;
         const end = Math.min((i + 1) * CHUNK_SIZE, fileSize);
         const chunkData = fileData.slice(start, end);
-        uploadPromises.push(uploadChunk(fileId, i, totalChunks, chunkData));
+        uploadPromises.push(uploadChunk(fileId, i + 1, totalChunks, chunkData));
     }
 
     await Promise.all(uploadPromises);
@@ -55,13 +55,16 @@ async function uploadLargeFile(filePath) {
     const fileData = fs.readFileSync(filePath);
     const fileSize = fileData.length;
     const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+    console.log(`fileSize: ${fileSize} totalChunks: ${totalChunks}`)
 
     // Create a file on the server to store the chunks
     const response = await axios.post(`${BASE_URL}/files`, {
         name: path.basename(filePath),
+        size: fileSize,
         totalChunks: totalChunks,
     });
-    const fileId = response.data.id;
+    console.log("response.data.id: " + response.data.fileId)
+    const fileId = response.data.fileId;
 
     // Upload the chunks in parallel
     const uploadPromises = [];
@@ -77,6 +80,7 @@ async function uploadLargeFile(filePath) {
 
     // Reassemble the file
     await reassembleFile(fileId);
+
 }
 
 // Test the API
