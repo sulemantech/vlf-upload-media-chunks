@@ -7,7 +7,7 @@ const BASE_URL = 'http://localhost:3005';
 
 // Upload a chunk of a file
 async function uploadChunk(fileId, chunkNumber, totalChunks, chunkData) {
-    const response = await axios.post(`${BASE_URL}/chunks`, {
+    const response = await axios.post(`${BASE_URL}/chunks/${chunkNumber}`, {
         fileId: fileId,
         chunkNumber: chunkNumber,
         totalChunks: totalChunks,
@@ -19,12 +19,12 @@ async function uploadChunk(fileId, chunkNumber, totalChunks, chunkData) {
 
 // Reassemble the chunks of a file
 async function reassembleFile(fileId) {
-    const response = await axios.post(`${BASE_URL}/files/${fileId}/reassemble`);
+    const response = await axios.post(`${BASE_URL}/reassemble/${fileId}`);
     return response.data;
 }
 
 // Upload a large file in chunks
-async function uploadLargeFile(filePath) {
+/*async function uploadLargeFile(filePath) {
     // Set the chunk size to 1 MB
     const CHUNK_SIZE = 1 * 1024 * 1024;
 
@@ -46,7 +46,7 @@ async function uploadLargeFile(filePath) {
 
     // Reassemble the file
     await reassembleFile(fileId);
-}
+}*/
 
 async function uploadLargeFile(filePath) {
     // Set the chunk size to 1 MB

@@ -10,15 +10,15 @@ const {
 // Sequelize setup, need to remove it
 const sequelize = new Sequelize(
     "postgres://postgres:root@localhost:5433/uploads", {
-        dialect: "postgres",
-        schema: 'common',
-        dialectOptions: {
-            ssl: false,
-        },
-        define: {
-            timestamps: false,
-        },
-    }
+    dialect: "postgres",
+    schema: 'common',
+    dialectOptions: {
+        ssl: false,
+    },
+    define: {
+        timestamps: false,
+    },
+}
 );
 
 const port = 3005;
@@ -100,16 +100,25 @@ app.post('/files', async (req, res) => {
         } = req.body;
 
         console.log(`name: ${name} sized: ${size} totalChunks: ${totalChunks}`);
-        var number = 100;
-        const file = await File.create({
-            name,
-            size,
-            totalchunks: 10
-        });
+        try {
+            const file = await File.create({
+                name,
+                size,
+                totalchunks: 10
+            });
+            console.log("Returning 201 here");
+            res.status(201).json({
+                fileId: file.id
+            });
+        } catch (error) {
+            console.error(error);
+        }
+        console.log("After the try catch block");
+
         console.log("Returning 201 here");
-        res.status(201).json({
-            fileId: file.id
-        });
+            res.status(201).json({
+                fileId: 500
+            });
     } catch (error) {
         console.error(error);
         res.status(500).send('Error creating file');
@@ -122,10 +131,11 @@ app.post('/chunks/:id', async (req, res) => {
         const chunkId = req.params.id;
         const {
             fileId,
-            chunkNumber
+            chunkNumber,
+            chunkData
         } = req.body;
 
-        console.log(`Inside chunks fileId ${fileId}, chunkNumber ${chunkNumber} `);
+        console.log(`Inside chunks fileId ${fileId}, chunkId, ${chunkId}, chunkNumber ${chunkNumber} `);
 
         const chunkPath = path.join(__dirname, 'chunks', chunkId);
 
@@ -134,6 +144,7 @@ app.post('/chunks/:id', async (req, res) => {
             const writeStream = fs.createWriteStream(chunkPath, {
                 flags: 'a'
             });
+            writeStream.write(chunkData);  // <-- Write the data to the stream
             req.pipe(writeStream);
             writeStream.on('finish', resolve);
             writeStream.on('error', reject);
@@ -178,9 +189,11 @@ app.post('/chunks/:id', async (req, res) => {
 });
 
 // Reassemble file from chunks
-app.post('/files/:id/reassemble', async (req, res) => {
+app.post('/reassemble/:id', async (req, res) => {
     try {
         const fileId = req.params.id;
+        console.log(`Inside reassemble fileId is ${fileId}`)
+        
         const chunks = await Chunk.findAll({
             where: {
                 fileId
