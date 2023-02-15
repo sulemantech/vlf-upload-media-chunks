@@ -35,9 +35,17 @@ app.use(bodyParser.urlencoded({
     extended: true
 }));
 
-app.use(express.json({
-    limit: '500mb'
-}));
+// Define a catch-all error handling middleware
+function errorHandler(err, req, res, next) {
+    console.error(err.stack);
+    const isApiRequest = req.originalUrl.startsWith('/api/');    
+    if (isApiRequest) {
+      res.status(500).json({ error: 'Something went wrong' });
+    } else {
+      res.status(500).send('Oops, something went wrong!');
+    }
+}
+  
 
 // Set up Sequelize models for File and Chunk
 const File = sequelize.define('file', {
@@ -90,6 +98,8 @@ const Chunk = sequelize.define('chunk', {
     schema: 'common' // specify the schema name here as well
 });
 
+app.use(errorHandler)
+
 // Create a new file upload
 app.post('/files', async (req, res) => {
     try {
@@ -116,9 +126,9 @@ app.post('/files', async (req, res) => {
         console.log("After the try catch block");
 
         console.log("Returning 201 here");
-            res.status(201).json({
-                fileId: 500
-            });
+        res.status(201).json({
+            fileId: 500
+        });
     } catch (error) {
         console.error(error);
         res.status(500).send('Error creating file');
@@ -129,6 +139,10 @@ app.post('/files', async (req, res) => {
 app.post('/chunks/:id', async (req, res) => {
     try {
         const chunkId = req.params.id;
+        if (!chunkId || (typeof chunkId !== 'string' && typeof chunkId !== 'number')) {
+            res.status(400).send('Invalid chunk ID');
+            return;
+        }
         const {
             fileId,
             chunkNumber,
@@ -192,8 +206,17 @@ app.post('/chunks/:id', async (req, res) => {
 app.post('/reassemble/:id', async (req, res) => {
     try {
         const fileId = req.params.id;
+        if (!fileId || (typeof fileId !== 'string' && typeof fileId !== 'number')) {
+            res.status(400).send('Invalid file ID');
+            return;
+        }
+
+        const file = await File.findOne({ where: { id: fileId } });
+        if (!file) {
+            res.status(404).send('File not found');
+            return;
+        }
         console.log(`Inside reassemble fileId is ${fileId}`)
-        
         const chunks = await Chunk.findAll({
             where: {
                 fileId
@@ -202,9 +225,19 @@ app.post('/reassemble/:id', async (req, res) => {
                 ['chunkNumber', 'ASC']
             ]
         });
+
+        if (chunks.length === 0) {
+            res.status(404).send('No chunks found for this file');
+            return;
+        }
         const filePath = path.join(__dirname, 'uploads', fileId.toString());
-        await reassemble(chunks, filePath);
-        res.send('File reassembled successfully');
+        try {
+            await reassemble(chunks, filePath);
+            res.send('File reassembled successfully');
+        } catch (error) {
+            console.error(error);
+            res.status(500).send('Error reassembling file');
+        }
     } catch (error) {
         console.error(error);
         res.status(500).send('Error reassembling file');
