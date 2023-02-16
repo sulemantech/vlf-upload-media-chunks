@@ -205,6 +205,7 @@ app.post('/chunks/:id', async (req, res) => {
 // Reassemble file from chunks
 app.post('/reassemble/:id', async (req, res) => {
     try {
+        console.log("inside reassemble action")
         const fileId = req.params.id;
         if (!fileId || (typeof fileId !== 'string' && typeof fileId !== 'number')) {
             res.status(400).send('Invalid file ID');

@@ -4,7 +4,7 @@
   "description": "Upload large media files using these very large file APIs, developed in nodejs and express",
   "main": "index.js",
   "scripts": {
-    "start": "node vlf.js",
+    "start": "nodemon vlf.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

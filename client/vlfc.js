@@ -58,7 +58,7 @@ async function uploadLargeFile(filePath) {
     console.log(`fileSize: ${fileSize} totalChunks: ${totalChunks}`)
 
     // Create a file on the server to store the chunks
-    const response = await axios.post(`${BASE_URL}/files`, {
+   /* const response = await axios.post(`${BASE_URL}/files`, {
         name: path.basename(filePath),
         size: fileSize,
         totalChunks: totalChunks,
@@ -77,7 +77,8 @@ async function uploadLargeFile(filePath) {
     }
 
     await Promise.all(uploadPromises);
-
+    */
+    var fileId = 10;
     // Reassemble the file
     await reassembleFile(fileId);
 
