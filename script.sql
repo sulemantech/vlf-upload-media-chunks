@@ -1,0 +1,12 @@
+CREATE TABLE Files (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  size BIGINT NOT NULL,
+  totalchunks INTEGER NOT NULL,
+  uploadedchunks INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE Chunks (
+  id VARCHAR(255) PRIMARY KEY,
+  fileid INTEGER NOT NULL REFERENCES Files(id),
+  chunknumber INTEGER NOT NULL
+);
