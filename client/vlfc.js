@@ -23,30 +23,6 @@ async function reassembleFile(fileId) {
     return response.data;
 }
 
-// Upload a large file in chunks
-/*async function uploadLargeFile(filePath) {
-    // Set the chunk size to 1 MB
-    const CHUNK_SIZE = 1 * 1024 * 1024;
-
-    const fileData = fs.readFileSync(filePath);
-    const fileSize = fileData.length;
-    const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
-
-    // Upload the chunks in parallel
-    const uploadPromises = [];
-
-    for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min((i + 1) * CHUNK_SIZE, fileSize);
-        const chunkData = fileData.slice(start, end);
-        uploadPromises.push(uploadChunk(fileId, i + 1, totalChunks, chunkData));
-    }
-
-    await Promise.all(uploadPromises);
-
-    // Reassemble the file
-    await reassembleFile(fileId);
-}*/
 
 async function uploadLargeFile(filePath) {
     // Set the chunk size to 1 MB
@@ -58,7 +34,7 @@ async function uploadLargeFile(filePath) {
     console.log(`fileSize: ${fileSize} totalChunks: ${totalChunks}`)
 
     // Create a file on the server to store the chunks
-   /* const response = await axios.post(`${BASE_URL}/files`, {
+    const response = await axios.post(`${BASE_URL}/files`, {
         name: path.basename(filePath),
         size: fileSize,
         totalChunks: totalChunks,
@@ -73,12 +49,12 @@ async function uploadLargeFile(filePath) {
         const start = i * CHUNK_SIZE;
         const end = Math.min((i + 1) * CHUNK_SIZE, fileSize);
         const chunkData = fileData.slice(start, end);
-        uploadPromises.push(uploadChunk(fileId, i, totalChunks, chunkData));
+        uploadPromises.push(uploadChunk(fileId, i+1, totalChunks, chunkData));
     }
 
     await Promise.all(uploadPromises);
-    */
-    var fileId = 10;
+    
+    console.log("calling reassemble now.");
     // Reassemble the file
     await reassembleFile(fileId);
 
@@ -92,6 +68,6 @@ async function uploadLargeFile(filePath) {
         await uploadLargeFile(filePath);
         console.log('File uploaded successfully');
     } catch (error) {
-        console.error(error);
+        console.error(error.message);
     }
 })();
