@@ -7,6 +7,8 @@ const {
     DataTypes
 } = require('sequelize');
 
+const { v4: uuidv4 } = require('uuid');
+
 // Sequelize setup, need to remove it
 const sequelize = new Sequelize(
     "postgres://postgres:root@localhost:5432/uploads", {
@@ -49,11 +51,11 @@ function errorHandler(err, req, res, next) {
 
 // Set up Sequelize models for File and Chunk
 const File = sequelize.define('file', {
-    /*id: {
-        type: DataTypes.INTEGER,
+    id: {
+        type: DataTypes.UUID,
         primaryKey: true,
-        autoIncrement: true
-    },*/
+        allowNull: false
+    },
     name: {
         type: DataTypes.STRING,
         allowNull: false
@@ -82,12 +84,12 @@ const Chunk = sequelize.define('chunk', {
         primaryKey: true
     },
     fileid: {
-        type: DataTypes.INTEGER,
+        type: DataTypes.UUID,
         allowNull: false,
-        references: {
-            model: 'Files',
-            key: 'id'
-        }
+        // references: {
+        //     model: 'Files',
+        //     key: 'id'
+        // }
     },
     chunknumber: {
         type: DataTypes.INTEGER,
@@ -98,7 +100,22 @@ const Chunk = sequelize.define('chunk', {
     schema: 'common' // specify the schema name here as well
 });
 
-app.use(errorHandler)
+
+//app.use(errorHandler)
+// Or, force Sequelize to drop and recreate the table
+sequelize.sync({ force: true });
+
+function deleteFilesInDirectory(directory) {
+    fs.readdir(directory, (err, files) => {
+      if (err) throw err;
+  
+      for (const file of files) {
+        fs.unlink(path.join(directory, file), err => {
+          if (err) throw err;
+        });
+      }
+    });
+  }
 
 // Create a new file upload
 app.post('/files', async (req, res) => {
@@ -108,10 +125,16 @@ app.post('/files', async (req, res) => {
             size,
             totalChunks
         } = req.body;
+       
+        //delete files in chunks
+        deleteFilesInDirectory(path.join(__dirname, 'chunks'));
+
+        const myUUID = uuidv4();
 
         console.log(`name: ${name} sized: ${size} totalChunks: ${totalChunks}`);
         try {
             const file = await File.create({
+                id:myUUID,
                 name,
                 size,
                 totalchunks: totalChunks
@@ -136,6 +159,7 @@ app.use(express.urlencoded({ extended: true }));
 // Upload a file chunk
 app.post('/chunks/:id', async (req, res) => {
     try {
+
         const chunkId = req.params.id;
         if (!chunkId || (typeof chunkId !== 'string' && typeof chunkId !== 'number')) {
             res.status(400).send('Invalid chunk ID');
@@ -151,7 +175,7 @@ app.post('/chunks/:id', async (req, res) => {
 
         let chunkDataDecoded = Buffer.from(chunkData, 'base64');
 
-        const chunkPath = path.join(__dirname, 'chunks', chunkId);
+        const chunkPath = path.join(__dirname, 'chunks', chunkId+"_"+fileId);
 
         console.log(`Inside chunks fileId ${fileId}, chunkId, ${chunkId}, chunkNumber ${chunkNumber} `);
 
@@ -192,7 +216,7 @@ app.post('/chunks/:id', async (req, res) => {
 
         console.log(`file.uploadedchunks: ${file.uploadedchunks}, file.totalchunks ${file.totalchunks}`);
 
-        if (file.uploadedchunks === file.totalchunks) {
+        /*if (file.uploadedchunks === file.totalchunks) {
             // All chunks have been uploaded, reassemble the file
             const chunks = await Chunk.findAll({
                 where: {
@@ -221,7 +245,8 @@ app.post('/chunks/:id', async (req, res) => {
             res.send('File uploaded successfully');
         } else {
             res.send('Chunk uploaded successfully');
-        }
+        }*/
+        res.send('Chunk uploaded successfully');
     } catch (error) {
         console.error(error.message);
         res.status(500).send('Error uploading chunk');
@@ -237,7 +262,6 @@ app.post('/reassemble/:id', async (req, res) => {
             res.status(400).send('Invalid file ID');
             return;
         }
-
         const file = await File.findOne({ where: { id: fileId } });
         if (!file) {
             res.status(404).send('File not found');
@@ -257,9 +281,9 @@ app.post('/reassemble/:id', async (req, res) => {
             res.status(404).send('No chunks found for this file');
             return;
         }
-        const filePath = path.join(__dirname, 'uploads', fileId.toString());
+        const filePath = path.join(__dirname, 'uploads', fileId.toString()+".mp4");
         try {
-            await reassemble(chunks, filePath);
+            await reassemble(fileId, chunks, filePath);
             res.send('File reassembled successfully');
         } catch (error) {
             console.error(error.message);
@@ -271,27 +295,27 @@ app.post('/reassemble/:id', async (req, res) => {
     }
 });
 
-async function reassemble(chunks, filePath) {
+async function reassemble(fileId, chunks, filePath) {
     const writeStream = fs.createWriteStream(filePath);
     for (const chunk of chunks) {
-        const chunkPath = path.join(__dirname, 'chunks', chunk.id);
+        const chunkPath = path.join(__dirname, 'chunks', chunk.id+"_"+fileId);
         const readStream = fs.createReadStream(chunkPath);
         await new Promise((resolve, reject) => {
             readStream.pipe(writeStream, {
                 end: false
             });
             readStream.on('end', () => {
-                console.log('File read stream ended');
+                //console.log('File read stream ended');
                 resolve();
-              });
-              readStream.on('error', (error) => {
+            });
+            readStream.on('error', (error) => {
                 console.error('Error reading file:', error);
                 reject(error);
-              });
+            });
         });
     }
     writeStream.end();
-   
+
     File.truncate({ cascade: true })
         .then(() => {
             console.log('Table truncated successfully');
