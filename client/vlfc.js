@@ -55,7 +55,7 @@ async function uploadLargeFile(filePath) {
     await Promise.all(uploadPromises);
     
     console.log("calling reassemble now.");
-    // Reassemble the file
+    // Reassemble the file chunks
     await reassembleFile(fileId);
 
 }
