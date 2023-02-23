@@ -7,12 +7,31 @@ const BASE_URL = 'http://localhost:3005';
 
 // Upload a chunk of a file
 async function uploadChunk(fileId, chunkNumber, totalChunks, chunkData) {
-    const response = await axios.post(`${BASE_URL}/chunks/${chunkNumber}`, {
+    /*const response = await axios.post(`${BASE_URL}/chunks/${chunkNumber}`, {
         fileId: fileId,
         chunkNumber: chunkNumber,
         totalChunks: totalChunks,
         chunkData: chunkData.toString('base64'),
+    });*/
+
+    const response = await axios.post(`${BASE_URL}/chunks/${chunkNumber}/${fileId}/${totalChunks}`, {
+        chunkData: chunkData.toString('base64'),
     });
+    /*const config = {
+        headers: {
+            'Content-Type': 'application/octet-stream'
+        }
+    };
+
+    const chunkBuffer = Buffer.from(chunkData);
+
+    const response = await axios.post(
+        `${BASE_URL}/chunks/${chunkNumber}/${fileId}/${totalChunks}`, {
+            chunkData: chunkBuffer
+        },
+        config
+    );*/
+
 
     return response.data;
 }
@@ -31,14 +50,20 @@ async function uploadLargeFile(filePath) {
     const fileData = fs.readFileSync(filePath);
     const fileSize = fileData.length;
     const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+
     console.log(`fileSize: ${fileSize} totalChunks: ${totalChunks}`)
 
     // Create a file on the server to store the chunks
-    const response = await axios.post(`${BASE_URL}/files`, {
+    /*const response = await axios.post(`${BASE_URL}/files`, {
         name: path.basename(filePath),
         size: fileSize,
         totalChunks: totalChunks,
-    });
+    });*/
+
+    console.log(`${BASE_URL}/files/${path.basename(filePath)}/${fileSize}/${totalChunks}`);
+
+    const response = await axios.post(`${BASE_URL}/files/${path.basename(filePath)}/${fileSize}/${totalChunks}`);
+
     console.log("response.data.id: " + response.data.fileId)
     const fileId = response.data.fileId;
 
@@ -49,11 +74,11 @@ async function uploadLargeFile(filePath) {
         const start = i * CHUNK_SIZE;
         const end = Math.min((i + 1) * CHUNK_SIZE, fileSize);
         const chunkData = fileData.slice(start, end);
-        uploadPromises.push(uploadChunk(fileId, i+1, totalChunks, chunkData));
+        uploadPromises.push(uploadChunk(fileId, i + 1, totalChunks, chunkData));
     }
 
     await Promise.all(uploadPromises);
-    
+
     console.log("calling reassemble now.");
     // Reassemble the file chunks
     await reassembleFile(fileId);

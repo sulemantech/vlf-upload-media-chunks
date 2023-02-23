@@ -7,20 +7,22 @@ const {
     DataTypes
 } = require('sequelize');
 
-const { v4: uuidv4 } = require('uuid');
+const {
+    v4: uuidv4
+} = require('uuid');
 
 // Sequelize setup, need to remove it
 const sequelize = new Sequelize(
-    "postgres://postgres:root@localhost:5432/uploads", {
-    dialect: "postgres",
-    schema: 'common',
-    dialectOptions: {
-        ssl: false,
-    },
-    define: {
-        timestamps: false,
-    },
-}
+    "postgres://postgres:root@localhost:5433/uploads", {
+        dialect: "postgres",
+        schema: 'common',
+        dialectOptions: {
+            ssl: false,
+        },
+        define: {
+            timestamps: false,
+        },
+    }
 );
 
 const port = 3005;
@@ -42,7 +44,9 @@ function errorHandler(err, req, res, next) {
     console.error(err.stack);
     const isApiRequest = req.originalUrl.startsWith('/api/');
     if (isApiRequest) {
-        res.status(500).json({ error: 'Something went wrong' });
+        res.status(500).json({
+            error: 'Something went wrong'
+        });
     } else {
         res.status(500).send('Oops, something went wrong!');
     }
@@ -103,29 +107,40 @@ const Chunk = sequelize.define('chunk', {
 
 //app.use(errorHandler)
 // Or, force Sequelize to drop and recreate the table
-sequelize.sync({ force: true });
+sequelize.sync({
+    force: true
+});
 
 function deleteFilesInDirectory(directory) {
     fs.readdir(directory, (err, files) => {
-      if (err) throw err;
-  
-      for (const file of files) {
-        fs.unlink(path.join(directory, file), err => {
-          if (err) throw err;
-        });
-      }
+        if (err) throw err;
+
+        for (const file of files) {
+            fs.unlink(path.join(directory, file), err => {
+                if (err) throw err;
+            });
+        }
     });
-  }
+}
+app.get('/test/:name/:size/:totalChunks', (req, res) => {
+    const {
+        name,
+        size,
+        totalChunks
+    } = req.params;
+    res.send(`Hello, World! name: ${name} size: ${size} totalChunks: ${totalChunks}`);
+});
+
 
 // Create a new file upload
-app.post('/files', async (req, res) => {
+app.post('/files/:name/:size/:totalChunks', async (req, res) => {
     try {
         const {
             name,
             size,
             totalChunks
-        } = req.body;
-       
+        } = req.params;
+
         //delete files in chunks
         deleteFilesInDirectory(path.join(__dirname, 'chunks'));
 
@@ -134,7 +149,7 @@ app.post('/files', async (req, res) => {
         console.log(`name: ${name} sized: ${size} totalChunks: ${totalChunks}`);
         try {
             const file = await File.create({
-                id:myUUID,
+                id: myUUID,
                 name,
                 size,
                 totalchunks: totalChunks
@@ -154,11 +169,26 @@ app.post('/files', async (req, res) => {
 });
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({
+    extended: true
+}));
 
 // Upload a file chunk
-app.post('/chunks/:id', async (req, res) => {
+app.post('/chunks/:id/:fileId/:chunkNumber', async (req, res) => {
     try {
+
+        console.log("chunks endpoint called");
+
+        const {
+            chunkData
+        } = req.body;
+
+        //console.log("chunks data is: " + chunkData);
+
+        const {
+            fileId,
+            chunkNumber
+        } = req.params;
 
         const chunkId = req.params.id;
         if (!chunkId || (typeof chunkId !== 'string' && typeof chunkId !== 'number')) {
@@ -166,16 +196,11 @@ app.post('/chunks/:id', async (req, res) => {
             return;
         }
 
-        const {
-            fileId,
-            chunkNumber,
-            chunkData
-        } = req.body;
+        //let chunkDataDecoded = Buffer.from(chunkData, 'base64');
 
+        let chunkDataDecoded = chunkData;
 
-        let chunkDataDecoded = Buffer.from(chunkData, 'base64');
-
-        const chunkPath = path.join(__dirname, 'chunks', chunkId+"_"+fileId);
+        const chunkPath = path.join(__dirname, 'chunks', chunkId + "_" + fileId);
 
         console.log(`Inside chunks fileId ${fileId}, chunkId, ${chunkId}, chunkNumber ${chunkNumber} `);
 
@@ -203,7 +228,13 @@ app.post('/chunks/:id', async (req, res) => {
             chunknumber: chunkNumber
         });
         // Update a record with ID 1
-        File.update({ uploadedchunks: chunkNumber }, { where: { id: fileId } })
+        File.update({
+                uploadedchunks: chunkNumber
+            }, {
+                where: {
+                    id: fileId
+                }
+            })
             .then(() => {
                 console.log('uploadedchunks updated successfully');
             })
@@ -262,7 +293,11 @@ app.post('/reassemble/:id', async (req, res) => {
             res.status(400).send('Invalid file ID');
             return;
         }
-        const file = await File.findOne({ where: { id: fileId } });
+        const file = await File.findOne({
+            where: {
+                id: fileId
+            }
+        });
         if (!file) {
             res.status(404).send('File not found');
             return;
@@ -281,7 +316,7 @@ app.post('/reassemble/:id', async (req, res) => {
             res.status(404).send('No chunks found for this file');
             return;
         }
-        const filePath = path.join(__dirname, 'uploads', fileId.toString()+".mp4");
+        const filePath = path.join(__dirname, 'uploads', fileId.toString() + ".mp4");
         try {
             await reassemble(fileId, chunks, filePath);
             res.send('File reassembled successfully');
@@ -298,7 +333,7 @@ app.post('/reassemble/:id', async (req, res) => {
 async function reassemble(fileId, chunks, filePath) {
     const writeStream = fs.createWriteStream(filePath);
     for (const chunk of chunks) {
-        const chunkPath = path.join(__dirname, 'chunks', chunk.id+"_"+fileId);
+        const chunkPath = path.join(__dirname, 'chunks', chunk.id + "_" + fileId);
         const readStream = fs.createReadStream(chunkPath);
         await new Promise((resolve, reject) => {
             readStream.pipe(writeStream, {
@@ -316,7 +351,9 @@ async function reassemble(fileId, chunks, filePath) {
     }
     writeStream.end();
 
-    File.truncate({ cascade: true })
+    File.truncate({
+            cascade: true
+        })
         .then(() => {
             console.log('Table truncated successfully');
         })
