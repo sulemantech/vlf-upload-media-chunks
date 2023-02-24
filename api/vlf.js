@@ -13,31 +13,23 @@ const {
 
 // Sequelize setup, need to remove it
 const sequelize = new Sequelize(
-    "postgres://postgres:root@localhost:5433/uploads", {
-        dialect: "postgres",
-        schema: 'common',
-        dialectOptions: {
-            ssl: false,
-        },
-        define: {
-            timestamps: false,
-        },
-    }
+    "postgres://postgres:root@localhost:5432/uploads", {
+    dialect: "postgres",
+    schema: 'common',
+    dialectOptions: {
+        ssl: false,
+    },
+    define: {
+        timestamps: false,
+    },
+}
 );
 
 const port = 3005;
 
 const app = express();
-app.use(express.json({
-    limit: '500mb'
-}));
-app.use(bodyParser.json({
-    limit: '500mb'
-}));
-app.use(bodyParser.urlencoded({
-    limit: '500mb',
-    extended: true
-}));
+
+app.use(express.raw({ type: 'application/octet-stream', limit: '100mb' }));
 
 // Define a catch-all error handling middleware
 function errorHandler(err, req, res, next) {
@@ -168,23 +160,13 @@ app.post('/files/:name/:size/:totalChunks', async (req, res) => {
     }
 });
 
-app.use(express.json());
-app.use(express.urlencoded({
-    extended: true
-}));
-
 // Upload a file chunk
 app.post('/chunks/:id/:fileId/:chunkNumber', async (req, res) => {
     try {
 
-        console.log("chunks endpoint called");
-
-        const {
-            chunkData
-        } = req.body;
+        var bodyChunk = JSON.parse(req.body).chunkData;
 
         //console.log("chunks data is: " + chunkData);
-
         const {
             fileId,
             chunkNumber
@@ -197,8 +179,8 @@ app.post('/chunks/:id/:fileId/:chunkNumber', async (req, res) => {
         }
 
         //let chunkDataDecoded = Buffer.from(chunkData, 'base64');
-
-        let chunkDataDecoded = chunkData;
+        let chunkDataDecoded = Buffer.from(bodyChunk.data);
+        //let chunkDataDecoded = Buffer.from(req.body);
 
         const chunkPath = path.join(__dirname, 'chunks', chunkId + "_" + fileId);
 
@@ -229,12 +211,12 @@ app.post('/chunks/:id/:fileId/:chunkNumber', async (req, res) => {
         });
         // Update a record with ID 1
         File.update({
-                uploadedchunks: chunkNumber
-            }, {
-                where: {
-                    id: fileId
-                }
-            })
+            uploadedchunks: chunkNumber
+        }, {
+            where: {
+                id: fileId
+            }
+        })
             .then(() => {
                 console.log('uploadedchunks updated successfully');
             })
@@ -243,40 +225,11 @@ app.post('/chunks/:id/:fileId/:chunkNumber', async (req, res) => {
             });
 
         const file = await File.findByPk(fileId);
-        file.uploadedchunks++;
+        //file.uploadedchunks++;
 
         console.log(`file.uploadedchunks: ${file.uploadedchunks}, file.totalchunks ${file.totalchunks}`);
 
-        /*if (file.uploadedchunks === file.totalchunks) {
-            // All chunks have been uploaded, reassemble the file
-            const chunks = await Chunk.findAll({
-                where: {
-                    fileid: fileId,
-                },
-                order: [
-                    ['chunknumber', 'ASC']
-                ]
-            });
-            const fileExtension = '.mp4'; // Example file extension
-            const fileWithExt = fileId.toString() + fileExtension;
 
-            console.log(`fileWithExt:  ${fileWithExt}`);
-
-            const filePath = path.join(__dirname, 'uploads', fileWithExt);
-
-            await reassemble(chunks, filePath);
-
-            await File.update({
-                uploadedchunks: file.totalChunks
-            }, {
-                where: {
-                    id: fileId
-                }
-            });
-            res.send('File uploaded successfully');
-        } else {
-            res.send('Chunk uploaded successfully');
-        }*/
         res.send('Chunk uploaded successfully');
     } catch (error) {
         console.error(error.message);
@@ -351,15 +304,14 @@ async function reassemble(fileId, chunks, filePath) {
     }
     writeStream.end();
 
-    File.truncate({
-            cascade: true
-        })
-        .then(() => {
-            console.log('Table truncated successfully');
-        })
-        .catch((error) => {
-            console.error('Error truncating table:', error);
-        });
+    // delete all rows from the Chunk table first
+    await Chunk.destroy({ truncate: true, schema: 'common' });
+    console.log('All rows deleted from Chunk table');
+
+    // then delete all rows from the File table
+    await File.destroy({ truncate: true, schema: 'common' });
+    console.log('All rows deleted from File table');
+
 }
 
 app.listen(port, () => {
