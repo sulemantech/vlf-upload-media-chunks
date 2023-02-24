@@ -7,31 +7,21 @@ const BASE_URL = 'http://localhost:3005';
 
 // Upload a chunk of a file
 async function uploadChunk(fileId, chunkNumber, totalChunks, chunkData) {
-    /*const response = await axios.post(`${BASE_URL}/chunks/${chunkNumber}`, {
-        fileId: fileId,
-        chunkNumber: chunkNumber,
-        totalChunks: totalChunks,
-        chunkData: chunkData.toString('base64'),
-    });*/
-
-    const response = await axios.post(`${BASE_URL}/chunks/${chunkNumber}/${fileId}/${totalChunks}`, {
-        chunkData: chunkData.toString('base64'),
-    });
-    /*const config = {
+   
+    const config = {
         headers: {
             'Content-Type': 'application/octet-stream'
         }
     };
-
-    const chunkBuffer = Buffer.from(chunkData);
+    
+    //const chunkBuffer = Buffer.from(chunkData);
 
     const response = await axios.post(
         `${BASE_URL}/chunks/${chunkNumber}/${fileId}/${totalChunks}`, {
-            chunkData: chunkBuffer
+            chunkData: chunkData
         },
         config
-    );*/
-
+    );
 
     return response.data;
 }
@@ -73,7 +63,11 @@ async function uploadLargeFile(filePath) {
     for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min((i + 1) * CHUNK_SIZE, fileSize);
-        const chunkData = fileData.slice(start, end);
+        //const chunkData = fileData.slice(start, end);
+        const chunkData = Buffer.alloc(end - start); // create a new buffer with the correct size
+        fileData.copy(chunkData, 0, start, end); // copy the data from the file buffer to the chunk buffer
+        console.log(`Chunk starts at: ${start} and ends at: ${end}`);
+        //const data = Buffer.from([0xFF, 0x02]); // Create a buffer object with two bytes of data
         uploadPromises.push(uploadChunk(fileId, i + 1, totalChunks, chunkData));
     }
 
