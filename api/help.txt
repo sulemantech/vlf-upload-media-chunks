@@ -1,0 +1,4 @@
+#Run the seed file using the Sequelize CLI. 
+sequelize db:seed --seed 20230227-seed-data.js
+# Note that the down method in the seed file is used to undo the changes made by the up method, and can be run using the db:seed:undo command:
+sequelize db:seed:undo --seed 20230227-seed-data.js

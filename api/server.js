@@ -2,34 +2,48 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
-const jwt = require('jsonwebtoken');
-const sequelize = require('./database/sequelize');
-
-require('dotenv').config()
-
-
-/*const {
+const {
     Sequelize,
     DataTypes
 } = require('sequelize');
-*/
 
 const {
     v4: uuidv4
 } = require('uuid');
+//
+const {
+    sequelize
+} = require('./config/db');
 
-const File = require('./models/file')(sequelize);
-const Chunk = require('./models/chunk')(sequelize);
+const User = require('./usermangement/user');
+const UserRole = require('./usermangement/userRole');
+require('./usermangement/userAssociation');
 
-// Associate models
-File.hasMany(Chunk, { foreignKey: 'fileid' });
-Chunk.belongsTo(File, { foreignKey: 'fileid' });
+//
+// Sequelize setup, need to remove it
+/*const sequelize = new Sequelize(
+    "postgres://postgres:root@localhost:5433/uploads", {
+        dialect: "postgres",
+        schema: 'common',
+        dialectOptions: {
+            ssl: false,
+        },
+        define: {
+            timestamps: false,
+        },
+    }
+);*/
 
 const port = 3005;
 
 const app = express();
+var options = {
+    inflate: true,
+    limit: '10mb',
+    type: '*/*'
+};
 
-app.use(express.raw({ type: 'application/octet-stream', limit: '100mb' }));
+app.use(express.raw(options));
 
 // Define a catch-all error handling middleware
 function errorHandler(err, req, res, next) {
@@ -46,55 +60,56 @@ function errorHandler(err, req, res, next) {
 
 
 // Set up Sequelize models for File and Chunk
-// const File = sequelize.define('file', {
-//     id: {
-//         type: DataTypes.UUID,
-//         primaryKey: true,
-//         allowNull: false
-//     },
-//     name: {
-//         type: DataTypes.STRING,
-//         allowNull: false
-//     },
-//     size: {
-//         type: DataTypes.BIGINT,
-//         allowNull: false
-//     },
-//     totalchunks: {
-//         type: DataTypes.INTEGER,
-//         allowNull: false
-//     },
-//     uploadedchunks: {
-//         type: DataTypes.INTEGER,
-//         allowNull: false,
-//         defaultValue: 0
-//     }
-// }, {
-//     // options
-//     schema: 'common' // specify the schema name here as well
-// });
+/*const File = sequelize.define('file', {
+    id: {
+        type: DataTypes.UUID,
+        primaryKey: true,
+        allowNull: false
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    size: {
+        type: DataTypes.BIGINT,
+        allowNull: false
+    },
+    totalchunks: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    uploadedchunks: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+    }
+}, {
+    // options
+    schema: 'common' // specify the schema name here as well
+});
+*/
 
-// const Chunk = sequelize.define('chunk', {
-//     id: {
-//         type: DataTypes.STRING,
-//         primaryKey: true
-//     },
-//     fileid: {
-//         type: DataTypes.UUID,
-//         allowNull: false,
-//         // references: {
-//         //     model: 'Files',
-//         //     key: 'id'
-//         // }
-//     },
-//     chunknumber: {
-//         type: DataTypes.INTEGER,
-//         allowNull: false
-//     }
-// }, {
-//     // options
-//     schema: 'common' // specify the schema name here as well
-// });
+const Chunk = sequelize.define('chunk', {
+    id: {
+        type: DataTypes.STRING,
+        primaryKey: true
+    },
+    fileid: {
+        type: DataTypes.UUID,
+        allowNull: false,
+        // references: {
+        //     model: 'Files',
+        //     key: 'id'
+        // }
+    },
+    chunknumber: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    }
+}, {
+    // options
+    schema: 'common' // specify the schema name here as well
+});
 
 
 //app.use(errorHandler)
@@ -102,24 +117,6 @@ function errorHandler(err, req, res, next) {
 sequelize.sync({
     force: true
 });
-
-function authenticate(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (token == null) return res.sendStatus(401);
-
-//   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-//     if (err) return res.sendStatus(403);
-//     req.user = user;
-//     next();
-//   });
-jwt.verify("token", "token", (err, user) => {
-    if (err) return res.sendStatus(403);
-    req.user = user;
-    next();
-  });
-    
-}
 
 function deleteFilesInDirectory(directory) {
     fs.readdir(directory, (err, files) => {
@@ -132,7 +129,7 @@ function deleteFilesInDirectory(directory) {
         }
     });
 }
-app.get('/test/:name/:size/:totalChunks', authenticate, (req, res) => {
+app.get('/test/:name/:size/:totalChunks', (req, res) => {
     const {
         name,
         size,
@@ -143,7 +140,7 @@ app.get('/test/:name/:size/:totalChunks', authenticate, (req, res) => {
 
 
 // Create a new file upload
-app.post('/files/:name/:size/:totalChunks',authenticate, async (req, res) => {
+app.post('/files/:name/:size/:totalChunks', async (req, res) => {
     try {
         const {
             name,
@@ -178,40 +175,8 @@ app.post('/files/:name/:size/:totalChunks',authenticate, async (req, res) => {
     }
 });
 
-// Delete a file and all of its chunks
-app.delete('/files/:fileId', authenticate, async (req, res) => {
-    try {
-      const { fileId } = req.params;
-  
-      // Delete all chunks associated with the file
-      const chunks = await Chunk.findAll({ where: { fileId } });
-  
-      for (const chunk of chunks) {
-        const chunkPath = path.join(__dirname, 'chunks', `${chunk.id}_${fileId}`);
-  
-        await fs.promises.unlink(chunkPath);
-  
-        await chunk.destroy();
-      }
-  
-      // Delete the file record
-      const file = await File.findByPk(fileId);
-  
-      if (!file) {
-        return res.status(404).send('File not found');
-      }
-  
-      await file.destroy();
-  
-      res.send('File and chunks deleted successfully');
-    } catch (error) {
-      console.error(error);
-      res.status(500).send('Error deleting file and chunks');
-    }
-  });
-  
 // Upload a file chunk
-app.post('/chunks/:id/:fileId/:chunkNumber',authenticate, async (req, res) => {
+app.post('/chunks/:id/:fileId/:chunkNumber', async (req, res) => {
     try {
 
         var bodyChunk = JSON.parse(req.body).chunkData;
@@ -261,12 +226,12 @@ app.post('/chunks/:id/:fileId/:chunkNumber',authenticate, async (req, res) => {
         });
         // Update a record with ID 1
         File.update({
-            uploadedchunks: chunkNumber
-        }, {
-            where: {
-                id: fileId
-            }
-        })
+                uploadedchunks: chunkNumber
+            }, {
+                where: {
+                    id: fileId
+                }
+            })
             .then(() => {
                 console.log('uploadedchunks updated successfully');
             })
@@ -287,54 +252,8 @@ app.post('/chunks/:id/:fileId/:chunkNumber',authenticate, async (req, res) => {
     }
 });
 
-// Delete a file chunk
-app.delete('/chunks/:id/:fileId/:chunkNumber', authenticate, async (req, res) => {
-    try {
-        const { fileId, chunkNumber } = req.params;
-        const chunkId = req.params.id;
-
-        if (!chunkId || (typeof chunkId !== 'string' && typeof chunkId !== 'number')) {
-            res.status(400).send('Invalid chunk ID');
-            return;
-        }
-
-        const chunkPath = path.join(__dirname, 'chunks', `${chunkId}_${fileId}`);
-
-        console.log(`Deleting chunk ${chunkNumber} at path: ${chunkPath}`);
-        fs.unlink(chunkPath, (err) => {
-            if (err) {
-                console.error(`Error deleting chunk ${chunkNumber}:`, err);
-                res.status(500).send(`Error deleting chunk ${chunkNumber}`);
-                return;
-            }
-            console.log(`Chunk ${chunkNumber} deleted successfully`);
-
-            // Delete the record from the database
-            Chunk.destroy({
-                where: {
-                    id: chunkId,
-                    fileid: fileId,
-                    chunknumber: chunkNumber
-                }
-            })
-            .then(() => {
-                console.log(`Chunk ${chunkNumber} record deleted from database`);
-            })
-            .catch((error) => {
-                console.error(`Error deleting chunk ${chunkNumber} record from database:`, error);
-            });
-
-            res.send(`Chunk ${chunkNumber} deleted successfully`);
-        });
-    } catch (error) {
-        console.error(error.message);
-        res.status(500).send('Error deleting chunk');
-    }
-});
-
-
 // Reassemble file from chunks
-app.post('/reassemble/:id', authenticate, async (req, res) => {
+app.post('/reassemble/:id', async (req, res) => {
     try {
         console.log("inside reassemble action")
         const fileId = req.params.id;
@@ -401,13 +320,27 @@ async function reassemble(fileId, chunks, filePath) {
     writeStream.end();
 
     // delete all rows from the Chunk table first
-    await Chunk.destroy({ truncate: true, schema: 'common' });
-    console.log('All rows deleted from Chunk table');
+    deleteAllRows();
 
-    // then delete all rows from the File table
-    await File.destroy({ truncate: true, schema: 'common' });
-    console.log('All rows deleted from File table');
+}
+async function deleteAllRows() {
+    try {
+        // delete all rows from the Chunk table first
+        await Chunk.destroy({
+            truncate: true,
+            schema: 'common'
+        });
+        console.log('All rows deleted from Chunk table');
 
+        // then delete all rows from the File table
+        await File.destroy({
+            truncate: true,
+            schema: 'common'
+        });
+        console.log('All rows deleted from File table');
+    } catch (error) {
+        console.error(error);
+    }
 }
 
 app.listen(port, () => {
