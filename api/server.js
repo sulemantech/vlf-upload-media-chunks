@@ -297,6 +297,108 @@ app.post('/reassemble/:id', async (req, res) => {
         res.status(500).send('Error reassembling file');
     }
 });
+//delete file
+app.delete('/files/:fileId', async (req, res) => {
+    try {
+        const {
+            fileId
+        } = req.params;
+
+        // Find the file in the database
+        const file = await File.findOne({
+            where: {
+                id: fileId
+            }
+        });
+        if (!file) {
+            res.status(404).json({
+                error: `File with ID ${fileId} not found`
+            });
+            return;
+        }
+
+        // Delete the file from the database
+        await file.destroy();
+
+        // Delete all the chunks for this file from the filesystem
+        const chunkPaths = await Chunk.findAll({
+            where: {
+                fileId
+            },
+            attributes: ['id'],
+            raw: true,
+        }).then((chunks) =>
+            chunks.map((chunk) => path.join(__dirname, 'chunks', `${chunk.id}_${fileId}`))
+        );
+
+        chunkPaths.forEach((chunkPath) => {
+            fs.unlink(chunkPath, (err) => {
+                if (err) {
+                    console.error(`Error deleting chunk file: ${chunkPath}`, err);
+                } else {
+                    console.log(`Chunk file deleted: ${chunkPath}`);
+                }
+            });
+        });
+
+        res.json({
+            message: `File with ID ${fileId} and all associated chunks deleted successfully`
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            error: 'Error deleting file'
+        });
+    }
+});
+
+//delete chunk
+app.delete('/chunks/:id/:fileId', async (req, res) => {
+    try {
+        const {
+            id,
+            fileId
+        } = req.params;
+
+        // Find the chunk in the database
+        const chunk = await Chunk.findOne({
+            where: {
+                id,
+                fileId
+            }
+        });
+        if (!chunk) {
+            res.status(404).json({
+                error: `Chunk with ID ${id} and file ID ${fileId} not found`
+            });
+            return;
+        }
+
+        // Delete the chunk from the database
+        await chunk.destroy();
+
+        // Delete the chunk file from the filesystem
+        const chunkPath = path.join(__dirname, 'chunks', `${id}_${fileId}`);
+        fs.unlink(chunkPath, (err) => {
+            if (err) {
+                console.error(`Error deleting chunk file: ${chunkPath}`, err);
+                res.status(500).json({
+                    error: `Error deleting chunk file: ${chunkPath}`
+                });
+            } else {
+                console.log(`Chunk file deleted: ${chunkPath}`);
+                res.json({
+                    message: `Chunk with ID ${id} and file ID ${fileId} deleted successfully`
+                });
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({
+            error: 'Error deleting chunk'
+        });
+    }
+});
 
 async function reassemble(fileId, chunks, filePath) {
     const writeStream = fs.createWriteStream(filePath);
@@ -323,6 +425,7 @@ async function reassemble(fileId, chunks, filePath) {
     deleteAllRows();
 
 }
+
 async function deleteAllRows() {
     try {
         // delete all rows from the Chunk table first
