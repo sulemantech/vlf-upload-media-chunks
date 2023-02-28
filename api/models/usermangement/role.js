@@ -2,9 +2,9 @@ const {
     DataTypes
 } = require('sequelize');
 
-const {
+const
     db
-} = require('../config/db');
+        = require('../../config/db');
 
 module.exports = (db) => {
     const Role = db.sequelize.define('role', {
@@ -28,6 +28,9 @@ module.exports = (db) => {
             allowNull: false,
             defaultValue: 0,
         },
+    }, {
+        // options
+        schema: 'common' // specify the schema name here as well
     });
     return Role;
 }

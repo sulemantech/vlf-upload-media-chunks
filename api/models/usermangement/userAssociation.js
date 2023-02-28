@@ -1,6 +1,6 @@
 const {
     db
-} = require('../config/db');
+} = require('../../config/db');
 
 const User = require('./user');
 const Role = require('./role');

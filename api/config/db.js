@@ -6,6 +6,7 @@ const sequelize = new Sequelize(
     "postgres://postgres:root@localhost:5432/uploads", {
         dialect: "postgres",
         schema: 'common',
+        logging: true, // disable logging
         dialectOptions: {
             ssl: false,
         },

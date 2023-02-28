@@ -1,29 +1,30 @@
 const {
     DataTypes
 } = require('sequelize');
-
-const {
+const
     db
-} = require('../config/db');
+        = require('../../config/db');
 
 module.exports = (db) => {
-    const User = db.sequelize.define('User', {
+    const UserRole = db.sequelize.define('UserRole', {
         id: {
             type: DataTypes.INTEGER,
             autoIncrement: true,
             allowNull: false,
             primaryKey: true,
         },
-        username: {
+        name: {
             type: DataTypes.STRING,
             allowNull: false,
             unique: true,
         },
-        password: {
+        description: {
             type: DataTypes.STRING,
-            allowNull: false,
+            allowNull: true,
         },
+    }, {
+        // options
+        schema: 'common' // specify the schema name here as well
     });
-
-    return User;
+    return UserRole;
 };

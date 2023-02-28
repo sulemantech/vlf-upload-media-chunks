@@ -1,27 +1,33 @@
 const {
     DataTypes
 } = require('sequelize');
-const {
-    sequelize
-} = require('../config/db');
-
+const
+    db
+        = require('../../config/db');
 module.exports = (db) => {
-    const UserRole = db.sequelize.define('UserRole', {
+    const User = db.sequelize.define('user', {
         id: {
             type: DataTypes.INTEGER,
             autoIncrement: true,
             allowNull: false,
             primaryKey: true,
         },
-        name: {
+        username: {
             type: DataTypes.STRING,
             allowNull: false,
             unique: true,
         },
-        description: {
+        password: {
             type: DataTypes.STRING,
-            allowNull: true,
+            allowNull: false,
         },
+    }, {
+        // options
+        schema: 'common' // specify the schema name here as well
     });
-    return UserRole;
-};
+    return User;
+}
+
+//User.hasMany(UserCommunity);
+
+//module.exports = User;

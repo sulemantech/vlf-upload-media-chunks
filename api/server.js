@@ -11,28 +11,14 @@ const {
     v4: uuidv4
 } = require('uuid');
 //
-const {
-    sequelize
-} = require('./config/db');
+const 
+    db = require('./config/db');
 
-const User = require('./usermangement/user');
-const UserRole = require('./usermangement/userRole');
-require('./usermangement/userAssociation');
+const User = require('./models/usermangement/user');
+const Role = require('./models/usermangement/role')
+const UserRole = require('./models/usermangement/userRole');
 
-//
-// Sequelize setup, need to remove it
-/*const sequelize = new Sequelize(
-    "postgres://postgres:root@localhost:5433/uploads", {
-        dialect: "postgres",
-        schema: 'common',
-        dialectOptions: {
-            ssl: false,
-        },
-        define: {
-            timestamps: false,
-        },
-    }
-);*/
+//require('./models/usermangement/userAssociation');
 
 const port = 3005;
 
@@ -59,62 +45,9 @@ function errorHandler(err, req, res, next) {
 }
 
 
-// Set up Sequelize models for File and Chunk
-/*const File = sequelize.define('file', {
-    id: {
-        type: DataTypes.UUID,
-        primaryKey: true,
-        allowNull: false
-    },
-    name: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
-    size: {
-        type: DataTypes.BIGINT,
-        allowNull: false
-    },
-    totalchunks: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-    },
-    uploadedchunks: {
-        type: DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0
-    }
-}, {
-    // options
-    schema: 'common' // specify the schema name here as well
-});
-*/
-
-const Chunk = sequelize.define('chunk', {
-    id: {
-        type: DataTypes.STRING,
-        primaryKey: true
-    },
-    fileid: {
-        type: DataTypes.UUID,
-        allowNull: false,
-        // references: {
-        //     model: 'Files',
-        //     key: 'id'
-        // }
-    },
-    chunknumber: {
-        type: DataTypes.INTEGER,
-        allowNull: false
-    }
-}, {
-    // options
-    schema: 'common' // specify the schema name here as well
-});
-
-
 //app.use(errorHandler)
 // Or, force Sequelize to drop and recreate the table
-sequelize.sync({
+db.sequelize.sync({
     force: true
 });
 
