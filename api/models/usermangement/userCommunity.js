@@ -3,11 +3,9 @@ const {
 } = require('sequelize');
 
 const User = require('./user');
-const
-    db
-        = require('../../config/db');
-module.exports = (db) => {
-    const UserCommunity = db.sequelize.define('usercommunity', {
+
+module.exports = (sequelize) => {
+    const UserCommunity = sequelize.define('usercommunity', {
         ags: {
             type: DataTypes.STRING,
             allowNull: false,

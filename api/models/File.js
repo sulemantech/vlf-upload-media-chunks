@@ -2,13 +2,11 @@ const {
     DataTypes
 } = require('sequelize');
 
-const {
-    db
-} = require('../config/db');
+const db = require('../config/db');
 
-
-module.exports = (db) => {
-    const File = db.sequelize.define('file', {
+const sequelize = db.sequelize;
+module.exports = (sequelize) => {
+    const File = sequelize.define('file', {
         id: {
             type: DataTypes.UUID,
             primaryKey: true,

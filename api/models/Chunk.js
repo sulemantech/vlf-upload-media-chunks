@@ -1,11 +1,11 @@
 const {
     DataTypes
 } = require('sequelize');
-const sequelize = require('../config/db');
+const db = require('../config/db');
 const File = require('./file');
-
-module.exports = (db) => {
-    const Chunk = db.sequelize.define('chunk', {
+const sequelize = db.sequelize;
+module.exports = (sequelize) => {
+    const Chunk = sequelize.define('chunk', {
         id: {
             type: DataTypes.STRING,
             primaryKey: true

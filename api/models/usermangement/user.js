@@ -1,11 +1,9 @@
 const {
     DataTypes
 } = require('sequelize');
-const
-    db
-        = require('../../config/db');
-module.exports = (db) => {
-    const User = db.sequelize.define('user', {
+
+module.exports = (sequelize) => {
+    const User = sequelize.define('user', {
         id: {
             type: DataTypes.INTEGER,
             autoIncrement: true,
@@ -27,7 +25,3 @@ module.exports = (db) => {
     });
     return User;
 }
-
-//User.hasMany(UserCommunity);
-
-//module.exports = User;

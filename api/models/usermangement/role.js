@@ -6,8 +6,8 @@ const
     db
         = require('../../config/db');
 
-module.exports = (db) => {
-    const Role = db.sequelize.define('role', {
+module.exports = (sequelize) => {
+    const Role = sequelize.define('role', {
         id: {
             type: DataTypes.INTEGER,
             autoIncrement: true,

@@ -3,10 +3,9 @@ const {
 } = require('sequelize');
 
 const sequelize = new Sequelize(
-    "postgres://postgres:root@localhost:5432/uploads", {
+    "postgres://postgres:root@localhost:5433/uploads", {
         dialect: "postgres",
         schema: 'common',
-        logging: true, // disable logging
         dialectOptions: {
             ssl: false,
         },

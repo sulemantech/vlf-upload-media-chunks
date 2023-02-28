@@ -1,12 +1,9 @@
 const {
     DataTypes
 } = require('sequelize');
-const
-    db
-        = require('../../config/db');
 
-module.exports = (db) => {
-    const UserRole = db.sequelize.define('UserRole', {
+module.exports = (sequelize)=> {
+    const UserRole = sequelize.define('userrole', {
         id: {
             type: DataTypes.INTEGER,
             autoIncrement: true,
