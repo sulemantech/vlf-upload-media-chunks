@@ -73,7 +73,7 @@ function authenticateUser(req, res, next) {
   const token = authHeader && authHeader.split(" ")[1];
   if (token == null) return res.sendStatus(401);
 
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
+  jwt.verify(token, process.env.MY_SECRET_KEY, (err, user) => {
     if (err) return res.sendStatus(403);
     req.user = user;
     next();
@@ -87,7 +87,27 @@ function authorizeUser(req, res, next) {
   next();
 }
 
-app.post("/uploadgpx/:fileName", authMiddleware, async (req, res) => {
+app.post("/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+  
+      // Find user by email and password
+      const user = await User.findOne({ where: { email, password } });
+      if (!user) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+  
+      // Generate JWT token with user id and email
+      const token = jwt.sign({ id: user.id, email: user.email }, "my_secret_key");
+  
+      // Send token in response
+      res.json({ token });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });  
+app.post("/uploadgpx/:fileName", authMiddleware, hasRole('admin'), async (req, res) => {
   const { fileName } = req.params;
 
   if (!fileName || !req.body) {

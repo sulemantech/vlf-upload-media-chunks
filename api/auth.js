@@ -8,6 +8,12 @@ const jwtOptions = {
   secret: "my_secret_key",
 };
 
+const generateToken = (user) => {
+  const payload = { id: user.id };
+  const token = jwt.sign(payload, jwtOptions.secret);
+  return token;
+};
+
 const authMiddleware = async (req, res, next) => {
   try {
     const token = req.headers.authorization.split(" ")[1];
@@ -58,7 +64,19 @@ const hasRole = (role) => async (req, res, next) => {
   }
 };
 
+const login = async (req, res) => {
+  const { email, password } = req.body;
+  const user = await User.findOne({ where: { email } });
+  if (!user || user.password !== password) {
+    res.status(401).json({ message: "Invalid email or password" });
+    return;
+  }
+  const token = generateToken(user);
+  res.status(200).json({ token });
+};
+
 module.exports = {
   authMiddleware,
   hasRole,
+  login,
 };
