@@ -87,6 +87,95 @@ function authorizeUser(req, res, next) {
   next();
 }
 
+const RefreshToken = sequelize.define('RefreshToken', {
+  id: {
+    type: Sequelize.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
+  },
+  token: {
+    type: Sequelize.STRING,
+    allowNull: false
+  },
+  expirationTime: {
+    type: Sequelize.DATE,
+    allowNull: false
+  }
+});
+
+app.post('/refreshTokens', async (req, res) => {
+  try {
+    // Generate a new refresh token
+    const refreshToken = generateNewRefreshToken();
+
+    // Set the expiration time for the refresh token
+    const expirationTime = Date.now() + REFRESH_TOKEN_EXPIRATION_TIME * 1000;
+
+    // Store the refresh token in the database
+    const newToken = await RefreshToken.create({
+      token: refreshToken,
+      expirationTime: new Date(expirationTime)
+    });
+
+    // Return the new refresh token to the client
+    res.json({ refreshToken });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server error');
+  }
+});
+
+
+app.post('/accessToken', async (req, res) => {
+  try {
+    const refreshToken = req.body.refreshToken;
+
+    // Find the refresh token in the database
+    const validRefreshToken = await RefreshToken.findOne({
+      where: { token: refreshToken, expirationTime: { [Sequelize.Op.gt]: new Date() } }
+    });
+
+    if (validRefreshToken) {
+      // Issue a new access token
+      const accessToken = generateNewAccessToken(validRefreshToken.user);
+
+      // Generate a new refresh token
+      const newRefreshToken = generateNewRefreshToken(validRefreshToken.user);
+
+      // Update the old refresh token with the new one in the database
+      await validRefreshToken.update({ token: newRefreshToken.token, expirationTime: newRefreshToken.expirationTime });
+
+      res.json({ accessToken, refreshToken: newRefreshToken.token });
+    } else {
+      res.status(401).send('Invalid refresh token.');
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server error');
+  }
+});
+
+app.delete('/refreshTokens/:token', async (req, res) => {
+  try {
+    const token = req.params.token;
+
+    // Find the refresh token in the database
+    const refreshToken = await RefreshToken.findOne({ where: { token } });
+
+    if (refreshToken) {
+      // Delete the refresh token from the database
+      await refreshToken.destroy();
+      res.send('Refresh token revoked.');
+    } else {
+      res.status(404).send('Refresh token not found.');
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Server error');
+  }
+});
+
+
 app.post("/login", async (req, res) => {
     try {
       const { email, password } = req.body;
